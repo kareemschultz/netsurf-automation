@@ -1,0 +1,569 @@
+{
+  "name": "01 - Inbound Message Triage (WhatsApp Policy Compliant)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Chatwoot Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "chatwoot-inbound"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "incoming-check",
+              "leftValue": "={{ $json.message_type }}",
+              "rightValue": "incoming",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-incoming",
+      "name": "Is Incoming Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg-text",
+              "name": "message_text",
+              "value": "={{ $json.content || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "conv-id",
+              "name": "conversation_id",
+              "value": "={{ $json.conversation.id }}",
+              "type": "number"
+            },
+            {
+              "id": "contact-id",
+              "name": "contact_id",
+              "value": "={{ $json.conversation.contact_inbox.contact_id }}",
+              "type": "number"
+            },
+            {
+              "id": "inbox-type",
+              "name": "inbox_type",
+              "value": "={{ $json.inbox.channel_type }}",
+              "type": "string"
+            },
+            {
+              "id": "sender-name",
+              "name": "sender_name",
+              "value": "={{ $json.sender.name || 'Customer' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-data",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "agent-keyword",
+              "leftValue": "={{ $json.message_text.toLowerCase() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "containsRegex",
+                "value": "(agent|human|person|representative|help me|speak to someone|hablar con alguien)"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "check-escalation",
+      "name": "Human Requested?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 240],
+      "notes": "WhatsApp Policy: Must always allow human escalation"
+    },
+    {
+      "parameters": {
+        "model": "claude-3-haiku-20240307",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are Netsurf's customer service assistant. You ONLY help with Netsurf internet services.\n\n=== STRICT RULES (WhatsApp Business Policy Compliance) ===\n1. You are NOT a general-purpose AI. Only discuss Netsurf services.\n2. If asked about anything unrelated to Netsurf/internet, politely redirect.\n3. Always mention human support is available: \"Type AGENT for human help\"\n4. Never pretend to be human. You are Netsurf's automated assistant.\n5. Keep responses under 300 words.\n6. If unsure, escalate don't guess.\n\n=== YOUR CAPABILITIES ===\n- Answer questions about internet plans, pricing, speeds\n- Explain current promotions\n- Basic troubleshooting (restart router, check cables, etc.)\n- Provide business hours and contact info\n- Capture leads for sales team\n\n=== ESCALATION TRIGGERS (respond with ESCALATE_TO_HUMAN) ===\n- Billing disputes or payment issues\n- Technical issues after basic troubleshooting\n- Complaints or angry customers\n- Questions about account changes\n- Anything you're not confident about\n\n=== CONTEXT PROVIDED ===\nPlans: {{plans_context}}\nPromos: {{promos_context}}\nFAQ: {{faq_context}}\nBusiness Hours: {{hours_context}}"
+            },
+            {
+              "role": "user",
+              "content": "Customer Name: {{ $json.sender_name }}\nChannel: {{ $json.inbox_type }}\nMessage: {{ $json.message_text }}\n\nClassify intent and respond appropriately. If escalation needed, start response with ESCALATE_TO_HUMAN:"
+            }
+          ]
+        },
+        "options": {
+          "maxTokensToSample": 500,
+          "temperature": 0.3
+        }
+      },
+      "id": "claude-triage",
+      "name": "Claude - Triage & Respond",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API"
+        }
+      },
+      "notes": "Using Haiku for 90-95% of messages (cheapest)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DIRECTUS_URL }}/items/internet_plans",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[status][_eq]",
+              "value": "active"
+            },
+            {
+              "name": "fields",
+              "value": "name,speed_mbps,price,description,features"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-plans",
+      "name": "Fetch Plans from Directus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DIRECTUS_CREDENTIAL_ID",
+          "name": "Directus API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DIRECTUS_URL }}/items/promotions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[status][_eq]",
+              "value": "active"
+            },
+            {
+              "name": "filter[end_date][_gte]",
+              "value": "={{ $now.toISODate() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-promos",
+      "name": "Fetch Active Promos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DIRECTUS_CREDENTIAL_ID",
+          "name": "Directus API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DIRECTUS_URL }}/items/faq",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-faq",
+      "name": "Fetch FAQ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 420],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DIRECTUS_CREDENTIAL_ID",
+          "name": "Directus API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "escalate-check",
+              "leftValue": "={{ $json.message.content[0].text }}",
+              "rightValue": "ESCALATE_TO_HUMAN",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-ai-escalation",
+      "name": "AI Requested Escalation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CHATWOOT_URL }}/api/v1/accounts/{{ $env.CHATWOOT_ACCOUNT_ID }}/conversations/{{ $('Extract Message Data').item.json.conversation_id }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"{{ $json.message.content[0].text.replace('ESCALATE_TO_HUMAN:', '').trim() }}\\n\\n_Type AGENT anytime to speak with a human representative._\",\n  \"message_type\": \"outgoing\",\n  \"private\": false\n}",
+        "options": {}
+      },
+      "id": "send-ai-response",
+      "name": "Send AI Response to Chatwoot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CHATWOOT_URL }}/api/v1/accounts/{{ $env.CHATWOOT_ACCOUNT_ID }}/conversations/{{ $('Extract Message Data').item.json.conversation_id }}/assignments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"assignee_id\": null\n}",
+        "options": {}
+      },
+      "id": "escalate-to-human",
+      "name": "Escalate - Assign to Human Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 140],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot API Token"
+        }
+      },
+      "notes": "Unassigns bot, puts in human queue"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CHATWOOT_URL }}/api/v1/accounts/{{ $env.CHATWOOT_ACCOUNT_ID }}/conversations/{{ $('Extract Message Data').item.json.conversation_id }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"content\": \"I'm connecting you with a Netsurf team member who can help you better. Please hold on, someone will be with you shortly! 🙋\",\n  \"message_type\": \"outgoing\",\n  \"private\": false\n}",
+        "options": {}
+      },
+      "id": "send-escalation-message",
+      "name": "Send Escalation Notice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 140],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DIRECTUS_URL }}/items/conversation_logs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"conversation_id\": {{ $('Extract Message Data').item.json.conversation_id }},\n  \"contact_id\": {{ $('Extract Message Data').item.json.contact_id }},\n  \"channel\": \"{{ $('Extract Message Data').item.json.inbox_type }}\",\n  \"customer_message\": \"{{ $('Extract Message Data').item.json.message_text }}\",\n  \"ai_response\": \"{{ $json.message.content[0].text.substring(0, 1000) }}\",\n  \"escalated\": false,\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-conversation",
+      "name": "Log Conversation to Directus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DIRECTUS_CREDENTIAL_ID",
+          "name": "Directus API Token"
+        }
+      },
+      "notes": "Logging for prompt refinement + analytics"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={\"status\": \"processed\"}"
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={\"status\": \"ignored\", \"reason\": \"not incoming\"}"
+      },
+      "id": "respond-ignored",
+      "name": "Respond Ignored",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 400]
+    }
+  ],
+  "connections": {
+    "Chatwoot Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Incoming Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Incoming Message?": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Ignored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Human Requested?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human Requested?": {
+      "main": [
+        [
+          {
+            "node": "Escalate - Assign to Human Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Plans from Directus",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Active Promos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch FAQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Plans from Directus": {
+      "main": [
+        [
+          {
+            "node": "Claude - Triage & Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Triage & Respond": {
+      "main": [
+        [
+          {
+            "node": "AI Requested Escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Requested Escalation?": {
+      "main": [
+        [
+          {
+            "node": "Escalate - Assign to Human Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send AI Response to Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send AI Response to Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Log Conversation to Directus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Conversation to Directus": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate - Assign to Human Queue": {
+      "main": [
+        [
+          {
+            "node": "Send Escalation Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Escalation Notice": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "netsurf",
+      "createdAt": "2026-01-04T00:00:00.000Z",
+      "updatedAt": "2026-01-04T00:00:00.000Z"
+    },
+    {
+      "name": "customer-support",
+      "createdAt": "2026-01-04T00:00:00.000Z",
+      "updatedAt": "2026-01-04T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-04T00:00:00.000Z",
+  "versionId": "1"
+}

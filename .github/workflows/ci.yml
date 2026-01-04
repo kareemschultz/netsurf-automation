@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-scripts:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck
+        run: |
+          find scripts -name "*.sh" -type f -exec shellcheck {} +
+
+  validate-docker:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env for validation
+        run: |
+          cp config/docker/.env.example config/docker/.env
+
+      - name: Validate docker-compose.yml
+        run: |
+          cd config/docker
+          docker compose config --quiet
+
+  validate-json:
+    name: Validate JSON Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Validate workflow JSON files
+        run: |
+          for file in src/workflows/*.json; do
+            echo "Validating $file..."
+            jq . "$file" > /dev/null
+          done
+
+      - name: Validate MCP config
+        run: |
+          jq . config/mcp/mcp-servers-config.json > /dev/null
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for secrets in code
+        run: |
+          # Check for common secret patterns
+          if grep -rE "(password|secret|api_key|token)\s*[:=]\s*['\"][^'\"]+['\"]" \
+            --include="*.sh" --include="*.yml" --include="*.json" \
+            --exclude-dir=.git \
+            --exclude="*.example" \
+            . 2>/dev/null | grep -v "placeholder" | grep -v "example" | grep -v "YOUR_"; then
+            echo "WARNING: Potential secrets found in code"
+            exit 1
+          fi
+          echo "No secrets detected"
+
+  validate-sql:
+    name: Validate SQL Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Basic SQL validation
+        run: |
+          for file in src/database/**/*.sql config/docker/*.sql; do
+            if [ -f "$file" ]; then
+              echo "Checking $file for basic syntax..."
+              # Check for unclosed parentheses
+              if ! grep -qE "^\s*--" "$file"; then
+                open=$(grep -o "(" "$file" | wc -l)
+                close=$(grep -o ")" "$file" | wc -l)
+                if [ "$open" != "$close" ]; then
+                  echo "WARNING: Unbalanced parentheses in $file"
+                fi
+              fi
+            fi
+          done
+          echo "SQL validation complete"
+
+  all-checks:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [lint-scripts, validate-docker, validate-json, security-scan, validate-sql]
+    steps:
+      - run: echo "All CI checks passed!"

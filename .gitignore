@@ -1,0 +1,48 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+config/docker/.env
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Beads local cache
+.beads/*.sqlite
+.beads/cache/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Backups
+*.backup
+*.bak
+backups/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker volumes (if local)
+data/
+volumes/
+
+# Credentials (safety net)
+*credentials*.json
+*secret*.json
+*.pem
+*.key

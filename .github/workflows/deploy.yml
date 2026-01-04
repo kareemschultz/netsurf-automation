@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      skip_backup:
+        description: 'Skip pre-deployment backup'
+        required: false
+        default: false
+        type: boolean
+
+  push:
+    tags:
+      - 'v*'
+
+env:
+  DEPLOY_PATH: /opt/netsurf-automation
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pre-deployment backup
+        if: ${{ github.event.inputs.skip_backup != 'true' }}
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ${{ env.DEPLOY_PATH }} && ./scripts/backup.sh"
+
+      - name: Pull latest code
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ${{ env.DEPLOY_PATH }} && git pull origin main"
+
+      - name: Deploy stack
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ${{ env.DEPLOY_PATH }} && ./scripts/02-deploy-stack.sh"
+
+      - name: Run health checks
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ${{ env.DEPLOY_PATH }} && ./scripts/04-health-check.sh"
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "Deployment successful!"
+          # Add notification logic (Slack, Discord, etc.)
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deployment failed!"
+          # Add notification logic
+
+  rollback:
+    name: Rollback (Manual)
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+    needs: [deploy]
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - name: Rollback to previous version
+        run: |
+          echo "Rollback triggered - manual intervention required"
+          # Add rollback logic if needed

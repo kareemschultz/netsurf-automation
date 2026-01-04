@@ -1,0 +1,41 @@
+{
+  "mcpServers": {
+    "n8n": {
+      "command": "npx",
+      "args": ["-y", "@n8n/n8n-mcp-server"],
+      "env": {
+        "N8N_HOST": "http://localhost:5678",
+        "N8N_API_KEY": "${N8N_API_KEY}"
+      },
+      "description": "Interact with n8n workflows, credentials, and executions"
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://netsurf:${POSTGRES_PASSWORD}@localhost:5432/directus"
+      },
+      "description": "Direct PostgreSQL access for queries and schema operations"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/opt/netsurf-stack"
+      ],
+      "description": "Read/write files in the deployment directory"
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/fetch-mcp"],
+      "description": "Make HTTP requests to APIs (Directus, Chatwoot, etc.)"
+    }
+  },
+  "notes": {
+    "installation": "Run: npm install -g @n8n/n8n-mcp-server @modelcontextprotocol/server-postgres @modelcontextprotocol/server-filesystem @anthropic/fetch-mcp",
+    "n8n_api_key": "Generate in n8n UI: Settings → API → Create API Key",
+    "postgres_password": "Use the POSTGRES_PASSWORD from .env file",
+    "security": "These MCP servers have privileged access - use only in trusted environments"
+  }
+}

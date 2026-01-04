@@ -1,0 +1,422 @@
+{
+  "name": "02 - Scheduled Social Media Auto-Poster",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtDay": [1, 4],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule (Mon & Thu 9AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "Adjust days/times as needed for Netsurf's posting schedule"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DIRECTUS_URL }}/items/promotions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[status][_eq]",
+              "value": "active"
+            },
+            {
+              "name": "filter[end_date][_gte]",
+              "value": "={{ $now.toISODate() }}"
+            },
+            {
+              "name": "filter[auto_post][_eq]",
+              "value": "true"
+            },
+            {
+              "name": "limit",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-promos",
+      "name": "Fetch Active Promotions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DIRECTUS_CREDENTIAL_ID",
+          "name": "Directus API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-promos",
+              "leftValue": "={{ $json.data.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-promos-exist",
+      "name": "Has Active Promos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-3-haiku-20240307",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a social media copywriter for Netsurf, an internet service provider in Guyana.\n\n=== BRAND VOICE ===\n- Friendly, professional, community-focused\n- Emphasize reliability and local service\n- Use simple language (many customers aren't tech-savvy)\n- Occasional Caribbean flair is welcome\n\n=== OUTPUT FORMAT ===\nReturn ONLY valid JSON with this structure:\n{\n  \"facebook\": {\n    \"text\": \"Post text here (max 500 chars)\",\n    \"hashtags\": \"#Netsurf #GuyanaInternet\"\n  },\n  \"instagram\": {\n    \"caption\": \"Caption here (max 300 chars)\",\n    \"hashtags\": \"#Netsurf #GuyanaInternet #FastInternet #Guyana\"\n  },\n  \"tiktok\": {\n    \"caption\": \"Short punchy caption (max 150 chars)\",\n    \"hashtags\": \"#netsurf #guyanatech #internet\"\n  }\n}\n\nDo NOT include any text outside the JSON."
+            },
+            {
+              "role": "user",
+              "content": "Create social media posts for this promotion:\n\nTitle: {{ $json.data[0].title }}\nDescription: {{ $json.data[0].description }}\nDiscount: {{ $json.data[0].discount_percent }}% off\nValid until: {{ $json.data[0].end_date }}\nTarget plan: {{ $json.data[0].target_plan }}\n\nMake it engaging and include a call-to-action to contact Netsurf."
+            }
+          ]
+        },
+        "options": {
+          "maxTokensToSample": 800,
+          "temperature": 0.7
+        }
+      },
+      "id": "claude-generate-posts",
+      "name": "Claude - Generate Social Posts",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [900, 240],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's JSON response\nconst claudeResponse = $input.first().json.message.content[0].text;\n\ntry {\n  // Clean up response (remove any markdown backticks if present)\n  let cleanJson = claudeResponse\n    .replace(/```json\\n?/g, '')\n    .replace(/```\\n?/g, '')\n    .trim();\n  \n  const posts = JSON.parse(cleanJson);\n  \n  return {\n    json: {\n      facebook_text: posts.facebook.text + '\\n\\n' + posts.facebook.hashtags,\n      instagram_caption: posts.instagram.caption + '\\n\\n' + posts.instagram.hashtags,\n      tiktok_caption: posts.tiktok.caption + ' ' + posts.tiktok.hashtags,\n      promo_id: $('Fetch Active Promotions').first().json.data[0].id,\n      promo_title: $('Fetch Active Promotions').first().json.data[0].title\n    }\n  };\n} catch (error) {\n  // If parsing fails, create fallback posts\n  const promo = $('Fetch Active Promotions').first().json.data[0];\n  return {\n    json: {\n      facebook_text: `🌐 ${promo.title}!\\n\\n${promo.description}\\n\\nContact us today!\\n\\n#Netsurf #GuyanaInternet`,\n      instagram_caption: `🌐 ${promo.title}! Contact Netsurf today! #Netsurf #Guyana`,\n      tiktok_caption: `${promo.title} 🔥 #netsurf #guyana`,\n      promo_id: promo.id,\n      promo_title: promo.title,\n      parse_error: error.message\n    }\n  };\n}"
+      },
+      "id": "parse-posts",
+      "name": "Parse & Format Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.FACEBOOK_PAGE_ID }}/feed",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $json.facebook_text }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_ACCESS_TOKEN }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "post-facebook",
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 140],
+      "continueOnFail": true,
+      "notes": "Continues on fail so other platforms still post"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.INSTAGRAM_BUSINESS_ID }}/media",
+        "authentication": "genericCredentialType", 
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"caption\": \"{{ $json.instagram_caption }}\",\n  \"image_url\": \"{{ $env.DEFAULT_PROMO_IMAGE_URL }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_ACCESS_TOKEN }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "post-instagram-create",
+      "name": "Create Instagram Media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "continueOnFail": true,
+      "notes": "Instagram requires image_url. Set DEFAULT_PROMO_IMAGE_URL in env"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.INSTAGRAM_BUSINESS_ID }}/media_publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth", 
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"creation_id\": \"{{ $json.id }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_ACCESS_TOKEN }}\"\n}",
+        "options": {}
+      },
+      "id": "post-instagram-publish",
+      "name": "Publish Instagram Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tiktok-note",
+              "name": "tiktok_status",
+              "value": "manual_review",
+              "type": "string"
+            },
+            {
+              "id": "tiktok-caption",
+              "name": "tiktok_caption",
+              "value": "={{ $('Parse & Format Posts').item.json.tiktok_caption }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tiktok-manual",
+      "name": "TikTok - Manual Review",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 460],
+      "notes": "TikTok API is restrictive. Caption generated for manual posting."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DIRECTUS_URL }}/items/social_post_logs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"promo_id\": {{ $('Parse & Format Posts').item.json.promo_id }},\n  \"promo_title\": \"{{ $('Parse & Format Posts').item.json.promo_title }}\",\n  \"facebook_status\": \"{{ $('Post to Facebook').item.json.id ? 'posted' : 'failed' }}\",\n  \"facebook_post_id\": \"{{ $('Post to Facebook').item.json.id || '' }}\",\n  \"instagram_status\": \"{{ $('Publish Instagram Post').item.json.id ? 'posted' : 'failed' }}\",\n  \"instagram_post_id\": \"{{ $('Publish Instagram Post').item.json.id || '' }}\",\n  \"tiktok_status\": \"manual_pending\",\n  \"tiktok_caption\": \"{{ $('TikTok - Manual Review').item.json.tiktok_caption }}\",\n  \"posted_at\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-results",
+      "name": "Log Results to Directus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DIRECTUS_CREDENTIAL_ID",
+          "name": "Directus API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.NOTIFICATION_EMAIL }}",
+        "toEmail": "={{ $env.NETSURF_STAFF_EMAIL }}",
+        "subject": "=Social Media Posts Published - {{ $now.format('yyyy-MM-dd') }}",
+        "emailType": "text",
+        "message": "=Hi Team,\n\nToday's scheduled social media posts have been processed:\n\n📘 Facebook: {{ $('Post to Facebook').item.json.id ? 'Posted ✅' : 'Failed ❌' }}\n📷 Instagram: {{ $('Publish Instagram Post').item.json.id ? 'Posted ✅' : 'Failed ❌' }}\n🎵 TikTok: Ready for manual posting\n\nTikTok Caption:\n{{ $('TikTok - Manual Review').item.json.tiktok_caption }}\n\nPlease manually post to TikTok with the above caption.\n\n- Netsurf Automation Bot"
+      },
+      "id": "notify-staff",
+      "name": "Notify Staff (Optional)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2000, 300],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP"
+        }
+      },
+      "notes": "Optional: Email staff with TikTok caption for manual posting"
+    },
+    {
+      "parameters": {},
+      "id": "no-promos",
+      "name": "No Active Promos - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Schedule (Mon & Thu 9AM)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Promotions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Promotions": {
+      "main": [
+        [
+          {
+            "node": "Has Active Promos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Active Promos?": {
+      "main": [
+        [
+          {
+            "node": "Claude - Generate Social Posts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Active Promos - Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Generate Social Posts": {
+      "main": [
+        [
+          {
+            "node": "Parse & Format Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Format Posts": {
+      "main": [
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Instagram Media",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TikTok - Manual Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Log Results to Directus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Instagram Media": {
+      "main": [
+        [
+          {
+            "node": "Publish Instagram Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Instagram Post": {
+      "main": [
+        [
+          {
+            "node": "Log Results to Directus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TikTok - Manual Review": {
+      "main": [
+        [
+          {
+            "node": "Log Results to Directus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Results to Directus": {
+      "main": [
+        [
+          {
+            "node": "Notify Staff (Optional)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "netsurf",
+      "createdAt": "2026-01-04T00:00:00.000Z",
+      "updatedAt": "2026-01-04T00:00:00.000Z"
+    },
+    {
+      "name": "social-media",
+      "createdAt": "2026-01-04T00:00:00.000Z",
+      "updatedAt": "2026-01-04T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-04T00:00:00.000Z",
+  "versionId": "1"
+}
