@@ -4,11 +4,19 @@ AI-powered customer communications platform for the Netsurf Group of Companies.
 
 ## Overview
 
-This platform unifies customer support and social media automation across three Netsurf businesses in Guyana:
+This platform unifies customer support and social media automation across the Netsurf businesses in Guyana:
 
-- **Netsurf WISP** - Wireless Internet Service Provider
-- **Netsurf Power** - Solar Energy Systems
-- **Netsurf Nature Park** - Eco-Tourism Resort
+- **Netsurf Power** - Solar energy solutions & Starlink satellite internet kits
+  - Solar panels, lithium batteries, hybrid inverters
+  - Starlink equipment sales and installation
+  - Off-grid power systems
+  - Contact: +592-6446840 / 6119443 / 6218271
+  - Location: 56 Chalmers Place, Georgetown
+
+- **Netsurf Nature Park** - Eco-tourism retreat in Linden
+  - Day trips and overnight cabin stays
+  - Nature experiences, camping, birdwatching
+  - Reservations: +592-611-9443 / 621-8271
 
 ## Architecture
 

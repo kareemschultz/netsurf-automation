@@ -1,0 +1,41 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "description": "Read/write files in the project directory"
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "postgresql://netsurf:${POSTGRES_PASSWORD}@localhost:5432/directus"
+      },
+      "description": "Direct PostgreSQL access for queries and schema operations"
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "description": "GitHub repository operations, issues, PRs"
+    },
+    "n8n": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@illuminaresolutions/n8n-mcp-server"],
+      "env": {
+        "N8N_API_URL": "http://localhost:5678",
+        "N8N_API_KEY": "${N8N_API_KEY}"
+      },
+      "description": "Interact with n8n workflows, credentials, and executions"
+    }
+  },
+  "notes": {
+    "setup": "MCP servers require Docker services running. Start with: docker compose -f config/docker/docker-compose.yml up -d",
+    "n8n_api_key": "Generate in n8n UI: Settings → API → Create API Key, then set N8N_API_KEY env var",
+    "postgres_password": "Set POSTGRES_PASSWORD from config/docker/.env",
+    "github": "Requires GITHUB_TOKEN environment variable for authenticated access"
+  }
+}
