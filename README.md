@@ -175,7 +175,50 @@ See `.mcp.json` for configuration details.
 | Document | Description |
 |----------|-------------|
 | [N8N-SETUP.md](docs/N8N-SETUP.md) | n8n workflow configuration and MCP integration |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and multi-WhatsApp setup |
+| [STAFF-TRAINING-GUIDE.md](docs/training/STAFF-TRAINING-GUIDE.md) | Staff training with diagrams |
+| [CLAUDE-CODE.md](docs/CLAUDE-CODE.md) | Claude Code deployment instructions |
 | [AGENTS.md](AGENTS.md) | AI agent guidelines for this codebase |
+| [CLAUDE.md](CLAUDE.md) | Quick reference for Claude Code sessions |
+
+---
+
+## Directus CMS Collections
+
+Content managed in Directus for AI responses and website:
+
+| Collection | Purpose | Fields |
+|------------|---------|--------|
+| `products` | Internet plans & pricing | name, sku, category, price, speed_mbps, features |
+| `faq` | Frequently asked questions | question, answer, category, business |
+| `canned_responses` | AI response templates | trigger_keywords, response_template, category |
+| `business_hours` | Operating schedules | business, day, open_time, close_time |
+| `promotions` | Active deals & discounts | title, description, discount_percent, promo_code |
+
+**Public API Access:**
+- Products: `https://cms.ntpowergy.com/items/products`
+- FAQ: `https://cms.ntpowergy.com/items/faq`
+- Promotions: `https://cms.ntpowergy.com/items/promotions`
+
+---
+
+## Chatwoot Teams
+
+Multi-department customer support structure:
+
+```
+                    SUPERVISORS
+                  (Full oversight)
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+   SALES TEAM     SUPPORT TEAM    BILLING TEAM
+   • New signups  • Tech issues   • Payments
+   • Plan info    • Slow speeds   • Invoices
+   • Upgrades     • Equipment     • Refunds
+```
+
+Teams are auto-assigned based on WhatsApp inbox routing.
 
 ---
 
