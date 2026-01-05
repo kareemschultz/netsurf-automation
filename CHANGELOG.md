@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Multi-WhatsApp Number Support** - Architecture for multiple department numbers:
+  - Sales, Support, Billing lines with hybrid routing
+  - Unified webhook handling with department detection
+  - Chatwoot multi-inbox configuration
+  - Team-based agent assignment
+- **Directus Collections** - 5 CMS collections for business content:
+  - `products` - Internet plans (5 sample plans seeded)
+  - `faq` - Frequently asked questions (5 FAQs seeded)
+  - `canned_responses` - AI response templates (4 templates seeded)
+  - `business_hours` - Operating schedules (7 entries seeded)
+  - `promotions` - Active deals and discounts (2 promos seeded)
+- **Directus Scripts** for collection management:
+  - `scripts/setup-directus-collections.sh` - Create all collections
+  - `scripts/seed-directus-data.sh` - Seed sample data
+  - `scripts/setup-directus-permissions.sh` - Configure public API access
+- **Beads Issue Tracking** - Configured `bd` for project management:
+  - Issues synced to `.beads/issues.jsonl`
+  - Documentation in `CLAUDE.md` and `docs/CLAUDE-CODE.md`
+
+### Changed
+- Architecture docs updated with multi-WhatsApp routing diagram
+- Issue tracking migrated from manual markdown to beads system
+
 ## [0.2.0] - 2026-01-05
 
 ### Added

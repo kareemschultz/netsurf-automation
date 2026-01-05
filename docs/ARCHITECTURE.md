@@ -158,6 +158,78 @@ Schedule triggers (Mon/Thu 9AM)
          └────────┘             └────────┘
 ```
 
+## Multi-WhatsApp Number Architecture
+
+The system supports multiple WhatsApp Business numbers for different departments with hybrid routing.
+
+```
+                     META BUSINESS ACCOUNT
+    ┌─────────────────────────────────────────────────┐
+    │  +592-XXX-1111    +592-XXX-2222    +592-XXX-3333│
+    │     (Sales)        (Support)        (Billing)   │
+    └─────────┬──────────────┬──────────────┬─────────┘
+              │              │              │
+              │      Webhook (unified URL)  │
+              └──────────────┼──────────────┘
+                             ▼
+    ┌─────────────────────────────────────────────────┐
+    │                      N8N                         │
+    │  ┌─────────────────────────────────────────────┐│
+    │  │  WhatsApp Lead Capture Workflow              ││
+    │  │  - Extract display_phone_number              ││
+    │  │  - Route based on department                 ││
+    │  │  - Tag conversation accordingly              ││
+    │  └─────────────────────────────────────────────┘│
+    └─────────────────────────┬───────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   CHATWOOT   │     │   CHATWOOT   │     │   CHATWOOT   │
+│ Inbox: Sales │     │Inbox: Support│     │Inbox: Billing│
+└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
+       │                    │                    │
+       ▼                    ▼                    ▼
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Sales Team  │     │Support Team  │     │ Shared Pool  │
+│ (Dedicated)  │     │ (Dedicated)  │     │  (Hybrid)    │
+└──────────────┘     └──────────────┘     └──────────────┘
+       │                    │                    │
+       └────────────────────┼────────────────────┘
+                            ▼
+                   ┌──────────────┐
+                   │ Supervisors  │ ◀── Can see all inboxes
+                   └──────────────┘
+```
+
+### Routing Logic
+
+| Incoming Number | Chatwoot Inbox | Primary Team | Escalation |
+|-----------------|----------------|--------------|------------|
+| Sales line | sales-whatsapp | Sales Team | Any available |
+| Support line | support-whatsapp | Support Team | Technical leads |
+| Billing line | billing-whatsapp | Shared Pool | Accounts team |
+
+### Webhook Payload Identification
+
+```json
+{
+  "entry": [{
+    "changes": [{
+      "value": {
+        "metadata": {
+          "display_phone_number": "+592XXXXXXXX",
+          "phone_number_id": "123456789"
+        },
+        "messages": [...]
+      }
+    }]
+  }]
+}
+```
+
+The `display_phone_number` field identifies which business number received the message, enabling proper routing.
+
 ## Scaling Considerations
 
 ### Horizontal Scaling
