@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =============================================================================
 # Netsurf Group - Communications Platform Stack
 # =============================================================================
@@ -20,7 +18,7 @@ services:
   # PostgreSQL - Shared Database
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: netsurf-postgres
     restart: unless-stopped
     logging:
@@ -217,7 +215,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8055/server/health || exit 1"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8055/server/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -236,7 +234,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    command: bundle exec rails s -p 3000 -b 0.0.0.0
+    command: ["sh", "-c", "rm -f /app/tmp/pids/server.pid && bundle exec rails s -p 3000 -b 0.0.0.0"]
     environment:
       # Database
       POSTGRES_HOST: postgres
