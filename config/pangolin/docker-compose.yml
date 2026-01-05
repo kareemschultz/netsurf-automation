@@ -1,0 +1,29 @@
+# =============================================================================
+# Pangolin Newt Client - Tunnel to Pangolin Reverse Proxy
+# =============================================================================
+# Connects this server to Pangolin at karetechsolutions.com
+# Enables secure access to internal services without port forwarding
+# =============================================================================
+
+services:
+  newt:
+    image: fosrl/newt
+    container_name: netsurf-newt
+    restart: unless-stopped
+    environment:
+      - PANGOLIN_ENDPOINT=https://pangolin.karetechsolutions.com
+      - NEWT_ID=fkp4arzv6jo6sff
+      - NEWT_SECRET=1jc3vwmortem62glx1s32ix23ohsr7g1s7qs6jsvvex26uaj
+      - ACCEPT_CLIENTS=true
+    networks:
+      - netsurf-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  netsurf-network:
+    external: true
+    name: netsurf-network
