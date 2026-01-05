@@ -21,21 +21,31 @@
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "description": "GitHub repository operations, issues, PRs"
     },
-    "n8n": {
+    "n8n-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@illuminaresolutions/n8n-mcp-server"],
+      "args": ["n8n-mcp"],
       "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
         "N8N_API_URL": "http://localhost:5678",
         "N8N_API_KEY": "${N8N_API_KEY}"
       },
-      "description": "Interact with n8n workflows, credentials, and executions"
+      "description": "AI assistant for building n8n workflows - 543 nodes, 2700+ templates, full API access"
+    },
+    "netsurf-mcp": {
+      "type": "sse",
+      "url": "http://localhost:5678/webhook/netsurf-mcp/sse",
+      "description": "Netsurf business tools: bookings, pricing, availability, WhatsApp messaging"
     }
   },
   "notes": {
     "setup": "MCP servers require Docker services running. Start with: docker compose -f config/docker/docker-compose.yml up -d",
     "n8n_api_key": "Generate in n8n UI: Settings → API → Create API Key, then set N8N_API_KEY env var",
     "postgres_password": "Set POSTGRES_PASSWORD from config/docker/.env",
-    "github": "Requires GITHUB_TOKEN environment variable for authenticated access"
+    "github": "Requires GITHUB_TOKEN environment variable for authenticated access",
+    "n8n_mcp": "n8n-mcp allows AI to build workflows. netsurf-mcp exposes business tools via n8n's native MCP Server Trigger node",
+    "n8n_mcp_hosted": "Alternative: Use hosted service at https://dashboard.n8n-mcp.com for zero-config (100 calls/day free)"
   }
 }

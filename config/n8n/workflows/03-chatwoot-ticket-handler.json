@@ -1,0 +1,293 @@
+{
+  "name": "Chatwoot Ticket Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-webhook",
+        "options": {}
+      },
+      "id": "chatwoot-webhook",
+      "name": "Chatwoot Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-message",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "message_created",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "is-incoming",
+              "leftValue": "={{ $json.body.message_type }}",
+              "rightValue": "incoming",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-incoming",
+      "name": "Filter Incoming Messages",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analyze message for auto-response or escalation\nconst message = $input.first().json.body;\nconst content = message.content.toLowerCase();\nconst sender = message.sender;\n\n// Keywords for auto-categorization\nconst categories = {\n  pricing: ['price', 'cost', 'how much', 'rate', 'fee', 'charge', 'expensive', 'cheap', 'affordable'],\n  solar: ['solar', 'panel', 'battery', 'inverter', 'off-grid', 'power system', 'watts', 'kwh'],\n  starlink: ['starlink', 'satellite', 'internet', 'speed', 'mbps', 'download'],\n  booking: ['book', 'reserve', 'cabin', 'camping', 'nature park', 'visit', 'stay', 'trip'],\n  support: ['help', 'problem', 'issue', 'not working', 'broken', 'fix', 'repair'],\n  urgent: ['urgent', 'emergency', 'asap', 'immediately', 'critical']\n};\n\nlet detectedCategories = [];\nlet priority = 'normal';\nlet autoResponse = null;\n\n// Check categories\nfor (const [category, keywords] of Object.entries(categories)) {\n  for (const keyword of keywords) {\n    if (content.includes(keyword)) {\n      detectedCategories.push(category);\n      break;\n    }\n  }\n}\n\n// Set priority\nif (detectedCategories.includes('urgent')) {\n  priority = 'urgent';\n} else if (detectedCategories.includes('support')) {\n  priority = 'high';\n}\n\n// Generate auto-response for common queries\nif (detectedCategories.includes('pricing') && detectedCategories.includes('solar')) {\n  autoResponse = \"Thank you for your interest in our solar solutions! ☀️\\n\\nOur solar packages start from:\\n• Basic Panel Kit: GYD 150,000\\n• Complete Home System: GYD 450,000\\n• Commercial Systems: Custom pricing\\n\\nWould you like to schedule a free consultation? Call us at +592-644-6840 or reply with your preferred time.\";\n} else if (detectedCategories.includes('starlink')) {\n  autoResponse = \"Interested in Starlink? 🛰️\\n\\nWe offer complete Starlink kits including:\\n• Starlink Standard Kit\\n• Professional installation\\n• Setup & configuration\\n\\nContact us at +592-644-6840 for current pricing and availability.\";\n} else if (detectedCategories.includes('booking')) {\n  autoResponse = \"Welcome to Netsurf Nature Park! 🌿\\n\\nWe offer:\\n• Day trips (GYD 2,500/person)\\n• Cabin stays (from GYD 8,000/night)\\n• Camping (GYD 3,000/night)\\n\\nTo book, call +592-611-9443 or visit our booking page.\";\n}\n\nreturn {\n  conversation_id: message.conversation.id,\n  contact_id: message.sender.id,\n  contact_name: sender.name,\n  message_content: message.content,\n  categories: detectedCategories,\n  priority: priority,\n  auto_response: autoResponse,\n  should_escalate: priority === 'urgent' || priority === 'high',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "analyze-message",
+      "name": "Analyze Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-auto-response",
+              "leftValue": "={{ $json.auto_response }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-auto-response",
+      "name": "Has Auto Response?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://netsurf-chatwoot:3000/api/v1/accounts/1/conversations/{{ $json.conversation_id }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"{{ $json.auto_response }}\",\n  \"message_type\": \"outgoing\",\n  \"private\": false\n}",
+        "options": {}
+      },
+      "id": "send-auto-response",
+      "name": "Send Auto Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "chatwoot-api",
+          "name": "Chatwoot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "should-escalate",
+              "leftValue": "={{ $('Analyze Message').item.json.should_escalate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-escalation",
+      "name": "Should Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1130, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "escalation-msg",
+              "name": "notification",
+              "value": "=🚨 *Escalation Required*\\n\\n👤 *Customer:* {{ $('Analyze Message').item.json.contact_name }}\\n📝 *Message:* {{ $('Analyze Message').item.json.message_content }}\\n🏷️ *Categories:* {{ $('Analyze Message').item.json.categories.join(', ') }}\\n⚡ *Priority:* {{ $('Analyze Message').item.json.priority }}\\n\\n🔗 View in Chatwoot",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-escalation",
+      "name": "Format Escalation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1350, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "ticket_analytics"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "conversation_id": "={{ $('Analyze Message').item.json.conversation_id }}",
+            "categories": "={{ $('Analyze Message').item.json.categories.join(',') }}",
+            "priority": "={{ $('Analyze Message').item.json.priority }}",
+            "auto_responded": "={{ $('Analyze Message').item.json.auto_response ? true : false }}",
+            "created_at": "={{ $('Analyze Message').item.json.timestamp }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-analytics",
+      "name": "Log Analytics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1350, 200],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-cred",
+          "name": "Netsurf PostgreSQL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chatwoot Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filter Incoming Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Incoming Messages": {
+      "main": [
+        [
+          {
+            "node": "Analyze Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Message": {
+      "main": [
+        [
+          {
+            "node": "Has Auto Response?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Auto Response?": {
+      "main": [
+        [
+          {
+            "node": "Send Auto Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Should Escalate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Auto Response": {
+      "main": [
+        [
+          {
+            "node": "Log Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Escalate?": {
+      "main": [
+        [
+          {
+            "node": "Format Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "chatwoot",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "support",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

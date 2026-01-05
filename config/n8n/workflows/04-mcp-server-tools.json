@@ -1,0 +1,263 @@
+{
+  "name": "Netsurf MCP Tools Server",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "netsurf-mcp",
+        "options": {}
+      },
+      "id": "mcp-trigger",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "name": "get_solar_pricing",
+        "description": "Get pricing information for solar panel systems and equipment at Netsurf Power",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "system_type",
+              "description": "Type of solar system: basic, home, or commercial",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      },
+      "id": "tool-solar-pricing",
+      "name": "Solar Pricing Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [470, 200]
+    },
+    {
+      "parameters": {
+        "name": "get_starlink_info",
+        "description": "Get information about Starlink satellite internet kits and installation services",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        }
+      },
+      "id": "tool-starlink",
+      "name": "Starlink Info Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [470, 350]
+    },
+    {
+      "parameters": {
+        "name": "check_park_availability",
+        "description": "Check availability for Netsurf Nature Park cabins and camping spots",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "date",
+              "description": "Check-in date in YYYY-MM-DD format",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "accommodation_type",
+              "description": "Type: cabin_single, cabin_double, camping, day_trip",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "guests",
+              "description": "Number of guests",
+              "type": "number",
+              "required": false
+            }
+          ]
+        }
+      },
+      "id": "tool-availability",
+      "name": "Check Availability Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [470, 500]
+    },
+    {
+      "parameters": {
+        "name": "create_booking",
+        "description": "Create a new booking at Netsurf Nature Park",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "customer_name",
+              "description": "Customer full name",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "customer_phone",
+              "description": "Customer phone number",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "check_in",
+              "description": "Check-in date YYYY-MM-DD",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "accommodation_type",
+              "description": "Type: cabin_single, cabin_double, camping, day_trip",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "guests",
+              "description": "Number of guests",
+              "type": "number",
+              "required": true
+            },
+            {
+              "name": "nights",
+              "description": "Number of nights (1 for day_trip)",
+              "type": "number",
+              "required": false
+            }
+          ]
+        }
+      },
+      "id": "tool-create-booking",
+      "name": "Create Booking Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [670, 350]
+    },
+    {
+      "parameters": {
+        "name": "send_whatsapp_message",
+        "description": "Send a WhatsApp message to a customer",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "phone_number",
+              "description": "Customer phone number with country code",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "message",
+              "description": "Message content to send",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      },
+      "id": "tool-whatsapp",
+      "name": "Send WhatsApp Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [670, 500]
+    },
+    {
+      "parameters": {
+        "name": "get_business_hours",
+        "description": "Get business hours and contact information for Netsurf businesses",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "business",
+              "description": "Business name: power, nature_park, or all",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      },
+      "id": "tool-business-info",
+      "name": "Business Info Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.2,
+      "position": [670, 200]
+    }
+  ],
+  "connections": {
+    "MCP Server Trigger": {
+      "ai_tool": [
+        [
+          {
+            "node": "Solar Pricing Tool",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Starlink Info Tool",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Check Availability Tool",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Create Booking Tool",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Send WhatsApp Tool",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Business Info Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "mcp",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "ai-tools",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

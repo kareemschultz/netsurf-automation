@@ -1,0 +1,261 @@
+{
+  "name": "Nature Park Booking Confirmation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking-webhook",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "booking-webhook",
+      "name": "Booking Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process booking request\nconst booking = $input.first().json.body;\n\n// Generate booking reference\nconst ref = 'NNP-' + Date.now().toString(36).toUpperCase();\n\n// Calculate total\nconst rates = {\n  'day_trip': 2500,      // GYD per person\n  'cabin_single': 8000,  // GYD per night\n  'cabin_double': 12000, // GYD per night\n  'camping': 3000        // GYD per night\n};\n\nconst rate = rates[booking.package_type] || 5000;\nconst nights = booking.nights || 1;\nconst guests = booking.guests || 1;\nconst total = rate * nights * guests;\n\nreturn {\n  booking: {\n    reference: ref,\n    customer_name: booking.name,\n    customer_phone: booking.phone,\n    customer_email: booking.email || null,\n    package_type: booking.package_type,\n    check_in: booking.check_in,\n    check_out: booking.check_out || null,\n    nights: nights,\n    guests: guests,\n    total_gyd: total,\n    special_requests: booking.special_requests || '',\n    status: 'pending',\n    created_at: new Date().toISOString()\n  },\n  confirmation_message: `🌿 *Netsurf Nature Park Booking*\\n\\n` +\n    `📋 *Reference:* ${ref}\\n` +\n    `👤 *Guest:* ${booking.name}\\n` +\n    `📅 *Check-in:* ${booking.check_in}\\n` +\n    `🏕️ *Package:* ${booking.package_type.replace('_', ' ')}\\n` +\n    `👥 *Guests:* ${guests}\\n` +\n    `💰 *Total:* GYD ${total.toLocaleString()}\\n\\n` +\n    `Please confirm by replying YES or call +592-611-9443`\n};"
+      },
+      "id": "process-booking",
+      "name": "Process Booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "bookings"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reference": "={{ $json.booking.reference }}",
+            "customer_name": "={{ $json.booking.customer_name }}",
+            "customer_phone": "={{ $json.booking.customer_phone }}",
+            "customer_email": "={{ $json.booking.customer_email }}",
+            "package_type": "={{ $json.booking.package_type }}",
+            "check_in": "={{ $json.booking.check_in }}",
+            "nights": "={{ $json.booking.nights }}",
+            "guests": "={{ $json.booking.guests }}",
+            "total_gyd": "={{ $json.booking.total_gyd }}",
+            "status": "={{ $json.booking.status }}",
+            "created_at": "={{ $json.booking.created_at }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-booking",
+      "name": "Save Booking",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [690, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-cred",
+          "name": "Netsurf PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-phone",
+              "leftValue": "={{ $('Process Booking').item.json.booking.customer_phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-phone",
+      "name": "Has Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{$credentials.whatsapp_phone_id}}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $('Process Booking').item.json.booking.customer_phone }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={\"body\": \"{{ $('Process Booking').item.json.confirmation_message }}\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 200],
+      "disabled": true,
+      "notesInFlow": true,
+      "notes": "Configure WhatsApp Business API credentials"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"booking\": {{ JSON.stringify($('Process Booking').item.json.booking) }}\n}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "staff-notify",
+              "name": "staff_message",
+              "value": "=📅 *New Booking Received*\\n\\n{{ $('Process Booking').item.json.confirmation_message }}\\n\\n⚡ Action Required: Confirm availability",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-staff-notify",
+      "name": "Format Staff Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1130, 400]
+    }
+  ],
+  "connections": {
+    "Booking Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Booking": {
+      "main": [
+        [
+          {
+            "node": "Save Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Booking": {
+      "main": [
+        [
+          {
+            "node": "Has Phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Phone?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Staff Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Staff Notification": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "bookings",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "nature-park",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
