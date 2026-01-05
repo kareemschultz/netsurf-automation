@@ -293,6 +293,73 @@ After Claude Code completes deployment:
 
 ---
 
+## 📊 Issue Tracking with Beads
+
+This project uses **beads** (`bd`) for local-first issue tracking synced to git.
+
+### Quick Reference
+```bash
+# View all issues
+bd list
+
+# View ready-to-work tasks (no blockers)
+bd ready
+
+# Show issue details
+bd show <issue-id>
+
+# Create new issue
+bd create "Issue title" --priority P1 --labels "label1,label2"
+
+# Update issue status
+bd update <issue-id> --status in_progress
+bd update <issue-id> --status open
+
+# Close completed issue
+bd close <issue-id> --reason "Completed successfully"
+
+# Sync with GitHub (IMPORTANT - do this after changes)
+bd sync
+```
+
+### Priority Levels
+- **P0** - Critical/Blocking
+- **P1** - High priority
+- **P2** - Medium priority (default)
+- **P3** - Low priority
+- **P4** - Nice to have
+
+### Issue Statuses
+- `open` - Not started
+- `in_progress` - Currently working on
+- `closed` - Completed
+
+### Workflow
+1. Check `bd list` or `bd ready` for available tasks
+2. Update issue to `in_progress` when starting work
+3. Do the work
+4. Close issue with `bd close <id> --reason "what was done"`
+5. Run `bd sync` to push changes to GitHub
+
+### How Sync Works
+- Issues are stored in `.beads/issues.jsonl`
+- `bd sync` commits and pushes to the git remote
+- This keeps issue history in version control
+- All team members can see issues by pulling the repo
+
+### After Making Changes
+Always commit code changes AND sync beads:
+```bash
+# Commit your code changes
+git add -A && git commit -m "feat: description"
+git push
+
+# Sync beads issues
+bd sync
+```
+
+---
+
 ## 🆘 If Stuck
 
 1. Check service logs: `docker compose logs <service>`
