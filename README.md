@@ -1,62 +1,64 @@
 # Netsurf Automation
 
-AI-powered customer communications platform for the Netsurf Group of Companies.
+<div align="center">
+
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![n8n](https://img.shields.io/badge/n8n-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+
+**AI-powered customer communications platform for the Netsurf Group of Companies**
+
+[Getting Started](#quick-start) • [Documentation](#documentation) • [Services](#services) • [Architecture](#architecture)
+
+</div>
+
+---
 
 ## Overview
 
-This platform unifies customer support and social media automation across the Netsurf businesses in Guyana:
+This platform unifies customer support, workflow automation, and content management across the Netsurf businesses in Guyana.
 
-- **Netsurf Power** - Solar energy solutions & Starlink satellite internet kits
-  - Solar panels, lithium batteries, hybrid inverters
-  - Starlink equipment sales and installation
-  - Off-grid power systems
-  - Contact: +592-6446840 / 6119443 / 6218271
-  - Location: 56 Chalmers Place, Georgetown
+### Netsurf Power
+> Solar energy solutions & Starlink satellite internet
 
-- **Netsurf Nature Park** - Eco-tourism retreat in Linden
-  - Day trips and overnight cabin stays
-  - Nature experiences, camping, birdwatching
-  - Reservations: +592-611-9443 / 621-8271
+| | |
+|---|---|
+| **Products** | Solar panels, lithium batteries, hybrid inverters, Starlink kits |
+| **Contact** | +592-644-6840 / 611-9443 / 621-8271 |
+| **Location** | 56 Chalmers Place, Georgetown |
+| **Domain** | [ntpowergy.com](https://ntpowergy.com) |
 
-## Architecture
+### Netsurf Nature Park
+> Eco-tourism retreat in Linden
 
-```
-Customer Channels                    Backend Services
-+-----------------+                 +------------------+
-| WhatsApp        |                 |    Chatwoot      |
-| Facebook        +---------------->|  (Omnichannel)   |
-| Instagram       |                 +--------+---------+
-| Web Chat        |                          |
-+-----------------+                          | webhook
-                                             v
-+------------------+              +----------+----------+
-|    Directus      |<------------>|        n8n         |
-|  (CMS/Content)   |   context    | (Workflow Engine)  |
-+------------------+              +----------+----------+
-                                             |
-                                             v
-                                  +----------+----------+
-                                  |     Claude API      |
-                                  |  (AI Intelligence)  |
-                                  +---------------------+
-```
+| | |
+|---|---|
+| **Services** | Day trips, cabin stays, camping, birdwatching |
+| **Reservations** | +592-611-9443 / 621-8271 |
+| **Location** | Linden Highway, Guyana |
 
-## Features
+---
 
-- **Multi-Business Routing** - Automatic detection routes customers to correct knowledge base
-- **AI Confidence Gating** - Low confidence responses escalate to humans
-- **Structured Logging** - All conversations logged for analysis
-- **Social Media Automation** - AI-generated posts for Facebook & Instagram
-- **WhatsApp Compliant** - Meets Meta's business messaging policies
+## Services
+
+| Service | Purpose | URL | Health |
+|---------|---------|-----|--------|
+| **n8n** | Workflow automation | [n8n.ntpowergy.com](https://n8n.ntpowergy.com) | `/healthz` |
+| **Directus** | Content management | [cms.ntpowergy.com](https://cms.ntpowergy.com) | `/server/health` |
+| **Chatwoot** | Customer messaging | [chat.ntpowergy.com](https://chat.ntpowergy.com) | `/api` |
+| PostgreSQL | Database (pgvector) | Internal :5432 | - |
+| Redis | Cache/Queue | Internal :6379 | - |
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker & Docker Compose v2
-- 6-8GB RAM (4GB minimum)
+- Docker & Docker Compose v2+
+- 4GB+ RAM (8GB recommended)
 - 20GB+ free disk space
-- Ports 80, 443 available
 
 ### Deployment
 
@@ -65,75 +67,153 @@ Customer Channels                    Backend Services
 git clone https://github.com/kareemschultz/netsurf-automation.git
 cd netsurf-automation
 
-# Run deployment scripts in order
-./scripts/00-preflight-check.sh    # Validate system
-./scripts/01-generate-secrets.sh   # Generate credentials
-./scripts/02-deploy-stack.sh       # Start containers
-./scripts/03-run-migrations.sh     # Initialize databases
-./scripts/04-health-check.sh       # Verify services
-./scripts/05-import-workflows.sh   # Import n8n workflows
+# Start services
+docker compose -f config/docker/docker-compose.yml up -d
+
+# Run Chatwoot migrations
+docker compose -f config/docker/docker-compose.yml run --rm chatwoot-rails \
+  bundle exec rails db:chatwoot_prepare
+
+# Start Pangolin tunnel (optional)
+docker compose -f config/pangolin/docker-compose.yml up -d
+
+# Check status
+docker compose -f config/docker/docker-compose.yml ps
 ```
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed instructions.
+### Default Credentials
+
+After deployment, check `config/docker/.env` for generated credentials:
+- **n8n**: `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD`
+- **Directus**: `DIRECTUS_ADMIN_EMAIL` / `DIRECTUS_ADMIN_PASSWORD`
+- **Chatwoot**: Created on first visit
+
+---
+
+## Architecture
+
+```
+                                 ┌─────────────────────────────────────┐
+                                 │         Pangolin Tunnel             │
+                                 │   (Reverse Proxy & SSL Termination) │
+                                 └──────────────────┬──────────────────┘
+                                                    │
+        ┌───────────────────────────────────────────┼───────────────────────────────────────────┐
+        │                                           │                                           │
+        ▼                                           ▼                                           ▼
+┌───────────────┐                         ┌─────────────────┐                         ┌─────────────────┐
+│     n8n       │                         │    Directus     │                         │    Chatwoot     │
+│   :5678       │◄───────────────────────►│     :8055       │                         │     :3000       │
+│  Workflows    │        API/Webhooks     │   CMS/Content   │                         │  Omnichannel    │
+└───────┬───────┘                         └────────┬────────┘                         └────────┬────────┘
+        │                                          │                                           │
+        │                                          │                                           │
+        └──────────────────────────┬───────────────┴───────────────────────────────────────────┘
+                                   │
+                                   ▼
+                          ┌────────────────┐        ┌────────────────┐
+                          │   PostgreSQL   │◄──────►│     Redis      │
+                          │   (pgvector)   │        │   Cache/Queue  │
+                          │     :5432      │        │     :6379      │
+                          └────────────────┘        └────────────────┘
+```
+
+---
+
+## n8n Workflows
+
+Pre-configured automation workflows:
+
+| Workflow | Purpose | Trigger |
+|----------|---------|---------|
+| **WhatsApp Lead Capture** | Auto-categorize and save leads | Webhook |
+| **Booking Confirmation** | Nature Park reservation processing | Webhook |
+| **Chatwoot Ticket Handler** | Auto-respond & escalate tickets | Webhook |
+| **MCP Tools Server** | Expose business tools for AI agents | MCP |
+| **Daily Business Report** | Aggregate daily metrics | Schedule (6 PM) |
+
+Import workflows from `config/n8n/workflows/` via n8n UI or API.
+
+---
 
 ## Project Structure
 
 ```
 netsurf-automation/
-├── config/                 # Configuration files
-│   ├── docker/             # Docker Compose & env
-│   ├── mcp/                # MCP server configs
-│   └── pangolin/           # Reverse proxy routes
-├── docs/                   # Documentation
-│   └── specs/              # Speckit specifications
-├── scripts/                # Deployment automation
-├── services/               # Service-specific setup
-│   ├── chatwoot/           # Customer support platform
-│   └── directus/           # CMS configuration
-└── src/
-    ├── database/           # SQL schemas & seeds
-    ├── prompts/            # Claude system prompts
-    └── workflows/          # n8n workflow JSONs
+├── .beads/                 # AI agent issue tracking
+├── .mcp.json               # MCP server configuration
+├── config/
+│   ├── docker/             # Docker Compose & environment
+│   │   ├── docker-compose.yml
+│   │   ├── .env
+│   │   └── init-databases.sql
+│   ├── n8n/
+│   │   └── workflows/      # n8n workflow JSON files
+│   └── pangolin/           # Tunnel client config
+├── docs/
+│   └── N8N-SETUP.md        # n8n configuration guide
+└── README.md
 ```
 
-## Services
+---
 
-| Service | Purpose | Port |
-|---------|---------|------|
-| n8n | Workflow orchestration | 5678 |
-| Directus | Content management | 8055 |
-| Chatwoot | Customer messaging | 3000 |
-| PostgreSQL | Database | 5432 |
-| Redis | Cache/Queue | 6379 |
+## MCP Integration
+
+Two MCP configurations available:
+
+| MCP Server | Purpose |
+|------------|---------|
+| **n8n-mcp** | AI assistant for building n8n workflows (543 nodes, 2700+ templates) |
+| **netsurf-mcp** | Business tools exposed via n8n native MCP Server Trigger |
+
+See `.mcp.json` for configuration details.
+
+---
 
 ## Documentation
 
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [WhatsApp Compliance](docs/WHATSAPP-COMPLIANCE.md)
-- [API Reference](docs/API-REFERENCE.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
+| Document | Description |
+|----------|-------------|
+| [N8N-SETUP.md](docs/N8N-SETUP.md) | n8n workflow configuration and MCP integration |
+| [AGENTS.md](AGENTS.md) | AI agent guidelines for this codebase |
 
-## Project Tracking
+---
 
-This project uses multiple tracking systems:
+## Database Schema
 
-- **GitHub Issues** - Feature requests, bugs, tasks
-- **GitHub Projects** - Kanban board for sprint planning
-- **Beads** (`.beads/`) - AI agent task tracking
-- **Speckit** (`docs/specs/`) - Formal specifications
+Automation tables in `netsurf` database:
 
-## Contributing
+| Table | Purpose |
+|-------|---------|
+| `leads` | WhatsApp/web lead captures |
+| `bookings` | Nature Park reservations |
+| `ticket_analytics` | Chatwoot ticket metrics |
+| `daily_reports` | Archived daily reports |
+| `products` | Solar/Starlink product catalog |
+| `business_info` | Business contact details |
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
-- Branch naming conventions
-- Commit message format
-- Pull request process
+---
+
+## Tech Stack
+
+- **Orchestration**: Docker Compose
+- **Workflow**: n8n (queue mode with workers)
+- **CMS**: Directus 11
+- **Support**: Chatwoot
+- **Database**: PostgreSQL 15 with pgvector
+- **Cache**: Redis 7
+- **Tunnel**: Pangolin Newt
+
+---
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Acknowledgments
+---
 
-Built for the Netsurf Group of Companies, Guyana.
+<div align="center">
+
+**Built for Netsurf Group of Companies, Guyana**
+
+</div>
