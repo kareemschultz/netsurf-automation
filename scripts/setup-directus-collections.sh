@@ -3,9 +3,27 @@
 
 set -e
 
-DIRECTUS_URL="http://localhost:8055"
-EMAIL="admin@netsurf.gy"
-PASSWORD="PLOiiYKAAgjMdYsJug2G2ZcX"
+# Load environment variables from .env if it exists
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/../config/docker/.env"
+
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+
+# Configuration - use environment variables or prompt for credentials
+DIRECTUS_URL="${DIRECTUS_URL:-http://localhost:8055}"
+EMAIL="${DIRECTUS_ADMIN_EMAIL:-admin@netsurf.gy}"
+
+# Never hardcode passwords - require from environment or prompt
+if [ -z "$DIRECTUS_ADMIN_PASSWORD" ]; then
+  echo "DIRECTUS_ADMIN_PASSWORD not set in environment"
+  echo "Please set it via: export DIRECTUS_ADMIN_PASSWORD='your-password'"
+  echo "Or add it to $ENV_FILE"
+  exit 1
+fi
+PASSWORD="$DIRECTUS_ADMIN_PASSWORD"
 
 # Get auth token
 echo "Authenticating with Directus..."
