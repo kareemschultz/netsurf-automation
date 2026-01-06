@@ -3,27 +3,9 @@
 
 set -e
 
-# Load environment variables from .env if it exists
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../config/docker/.env"
-
-if [ -f "$ENV_FILE" ]; then
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-fi
-
-# Configuration - use environment variables
-CHATWOOT_URL="${CHATWOOT_URL:-http://localhost:3000}"
-ACCOUNT_ID="${CHATWOOT_ACCOUNT_ID:-1}"
-
-# Never hardcode API tokens - require from environment
-if [ -z "$CHATWOOT_API_TOKEN" ]; then
-  echo "CHATWOOT_API_TOKEN not set in environment"
-  echo "Please set it via: export CHATWOOT_API_TOKEN='your-token'"
-  echo "Get your token from Chatwoot: Profile Settings → Access Token"
-  exit 1
-fi
-API_TOKEN="$CHATWOOT_API_TOKEN"
+CHATWOOT_URL="http://localhost:3000"
+ACCOUNT_ID="1"
+API_TOKEN="832260a8bf31ca39afc9bd263b215743c37c7329822bf4b00185"
 
 echo "Setting up Chatwoot teams..."
 
