@@ -17,6 +17,24 @@ Before starting, ensure you have:
 - [ ] Valid phone number(s) NOT already registered with WhatsApp
 - [ ] Business verification documents (for full API access)
 
+## Netsurf Phone Numbers
+
+| Purpose | Number | Notes |
+|---------|--------|-------|
+| **WhatsApp Business** | +592 644 6840 | Primary customer messaging |
+| Main Office | +592 644 7847 | Business contact |
+| Nature Park | +592 611 9443 | Reservations |
+| Secondary | +592 621 8271 | Backup line |
+
+## Business Address
+
+```
+Netsurf Group
+56 Chalmers Place
+Stabroek, Georgetown
+Demerara-Mahaica, Guyana
+```
+
 ---
 
 ## Step 1: Create Meta Business Portfolio
@@ -134,7 +152,7 @@ WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ### 5.2 Add Production Phone Number
 
 1. Click **Add phone number**
-2. Enter your business phone number with country code: `+592XXXXXXXX`
+2. Enter your business phone number with country code: `+592 644 6840`
 3. Choose verification method: **SMS** or **Voice call**
 4. Enter the OTP code received
 5. Set display name (e.g., `Netsurf Support`)
@@ -168,7 +186,7 @@ Fill in the form:
 | Field | Value |
 |-------|-------|
 | **Inbox Name** | `Netsurf Sales` (or descriptive name) |
-| **Phone Number** | `+592XXXXXXXX` (your number) |
+| **Phone Number** | `+592 644 6840` |
 | **Phone Number ID** | From Step 5.3 |
 | **Business Account ID** | From Step 5.3 |
 | **API Key** | Your permanent access token from Step 4.3 |
@@ -178,7 +196,7 @@ Click **Create WhatsApp Inbox**
 ### 6.3 Copy Webhook Details
 
 After creation, Chatwoot displays:
-- **Webhook URL:** `https://chat.ntpowergy.com/webhooks/whatsapp/+592XXXXXXXX`
+- **Webhook URL:** `https://chat.ntpowergy.com/webhooks/whatsapp/+5926446840`
 - **Webhook Verify Token:** (auto-generated)
 
 **Copy both values** - you need them for Step 7.
@@ -404,7 +422,7 @@ WhatsApp charges per **24-hour conversation window**, not per message.
 
 | Configuration | Value |
 |---------------|-------|
-| Webhook Format | `https://chat.ntpowergy.com/webhooks/whatsapp/{phone_number}` |
+| Webhook Format | `https://chat.ntpowergy.com/webhooks/whatsapp/+5926446840` |
 | Required Permissions | `whatsapp_business_management`, `whatsapp_business_messaging` |
 | Supported Media | Images, audio, video, documents |
 
